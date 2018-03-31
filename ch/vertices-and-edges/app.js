@@ -2,7 +2,7 @@
 var nodes = [
             {id: 1},
             {id: 2},
-            {id: 3},
+            {id: 3}
 ];
 
 var links = [
@@ -111,18 +111,26 @@ function removeEdge(d, i){
 }
 
 function beginDragLine(d){
+  //console.log('beginDragLine touched', d3.event.type);
+  var isTouch = /touch/.test(d3.event.type);
+
+  if(isTouch) {
+    console.log("touch event");
+  }
   //to prevent call of addNode through svg
 	d3.event.stopPropagation();
   //to prevent dragging of svg in firefox
 	d3.event.preventDefault();
-	if(d3.event.ctrlKey || d3.event.button!=0) return;
-	mousedownNode = d;
+	if(d3.event.ctrlKey || (!isTouch && d3.event.button!=0)) return;
+  mousedownNode = d;
+  //console.log("mousedownNode", mousedownNode);
 	dragLine.classed("hidden", false)
 					.attr("d", "M" + mousedownNode.x + "," + mousedownNode.y + 
 						"L" + mousedownNode.x + "," + mousedownNode.y);
 }
 
 function updateDragLine(){
+  console.log(d3.mouse(this));
 	if(!mousedownNode) return;
 	dragLine.attr("d", "M" + mousedownNode.x + "," + mousedownNode.y + 
 									"L" + d3.mouse(this)[0] + "," + d3.mouse(this)[1]);
@@ -137,7 +145,12 @@ function hideDragLine(){
 //no need to call hideDragLine() and restart() in endDragLine
 //mouseup on vertices propagates to svg which calls hideDragLine
 function endDragLine(d){
-	if(!mousedownNode || mousedownNode===d) return;
+  //console.log('endDragLine touched', d3.event);
+  var isTouch = /touch/.test(d3.event.type);
+  if(!mousedownNode || (!isTouch && mousedownNode===d)) return;
+  var changedTouch = d3.event.changedTouches[0];
+  var elem = document.elementFromPoint(changedTouch.clientX, changedTouch.clientY);
+
 	//return if link already exists
 	for(var i=0; i<links.length; i++){
 		var l = links[i];
@@ -145,7 +158,10 @@ function endDragLine(d){
 			return;
 		}
 	}
-	var newLink = {source: mousedownNode, target:d};
+  var newLink = {source: mousedownNode, target:d};
+  if(isTouch) {
+    newLink = {source: mousedownNode, target: elem.__data__};
+  }
 	links.push(newLink);
   showGraphLatex();
 }
@@ -200,6 +216,8 @@ function restart(){
           	return colors(d.id);
           })
           .on("mousedown", beginDragLine)
+          .on("touchstart", beginDragLine)
+          .on("touchend", endDragLine)
           .on("mouseup", endDragLine)
           .on("mouseover", function(d){
           	var thisVertex = d3.select(this);
@@ -216,8 +234,10 @@ function restart(){
 
 //further interface
 svg.on("mousedown", addNode)
-	  .on("mousemove", updateDragLine)
-	  .on("mouseup", hideDragLine)
+    .on("mousemove", updateDragLine)
+    .on("touchmove", updateDragLine)
+    .on("mouseup", hideDragLine)
+    .on("touchend", hideDragLine)
 	  .on("contextmenu", function(){d3.event.preventDefault();})
 	  .on("mouseleave", hideDragLine);
 
